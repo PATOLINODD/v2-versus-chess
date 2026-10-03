@@ -1,0 +1,16 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    background-color: var(--bg-dark, hsl(0 0% 5%));
+}
+
+:root {
+    --arrow-color: hsl(50, 100%, 40%);
+}
+
+svg {
+    transition: all .3s ease-out;
+}
