@@ -531,8 +531,10 @@ export async function loadSpriteSheet(skinName, prefix) {
     document.body.appendChild(hiddenDiv);
 
     // Pre-rasterise each symbol into an Image object for the trail/explosion canvas
+    // We use 'text/html' here because standard.svg has duplicate interior IDs (id="Shape" appears 61 times).
+    // Parsing as 'image/svg+xml' triggers strict XML parsing which can silently fail or break getElementById.
     const parser  = new DOMParser();
-    const svgDoc  = parser.parseFromString(svgText, 'image/svg+xml');
+    const svgDoc  = parser.parseFromString(svgText, 'text/html');
     const packMap = {};
 
     for (const [, svgId] of Object.entries(svgMap)) {
