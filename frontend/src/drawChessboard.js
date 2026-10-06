@@ -1,16 +1,46 @@
 import { SpriteSheet } from "./SpriteSheet.js";
-import { boardState, svgMap } from "./handlePieceState.js";
+import { localSettings, opponentSettings } from "./settings.js";
+import { gameState } from "./gameState.js";
 import { getComplementaryColor } from "./utils/util.js";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PIECE IMAGE CACHE
+// Per-skin rasterised Image objects used by the ghost-trail and explosion FX.
+// Structure:  skinName → { svgId → HTMLImageElement }
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @type {Map<string, Record<string, HTMLImageElement>>} */
+const _imagePiecesCache = new Map();
+
+/**
+ * Legacy export — always points to the LOCAL player's rasterised pieces.
+ * Kept for backwards-compatibility with the trail/explosion code below.
+ * @type {Record<string, HTMLImageElement>}
+ */
 export const imagePieces = {};
+
 export const squareSize = 100;
-export const color = 40;
-export const light = 70;
 export const [rows, cols] = [8, 8];
 
-const piecesLayer = document.getElementById('pieces-layer');
-const html = String.raw;
+/**
+ * Maps piece characters to their SVG sprite IDs.
+ * Uppercase = white, lowercase = black.
+ * Defined here because it is tightly coupled to the rendering logic.
+ */
+export const svgMap = {
+    'K': 'wk', 'Q': 'wq', 'R': 'wr', 'B': 'wb', 'N': 'wn', 'P': 'wp',
+    'k': 'bk', 'q': 'bq', 'r': 'br', 'b': 'bb', 'n': 'bn', 'p': 'bp',
+};
 
+/** Lowercase piece chars belong to the black side. */
+const BLACK_PIECES = new Set(['k', 'q', 'r', 'b', 'n', 'p']);
+
+const piecesLayer = document.getElementById('pieces-layer');
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOARD DRAWING
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function drawChessboard() {
     const gamecontainer = document.querySelector('div#game-container');
@@ -21,53 +51,77 @@ export function drawChessboard() {
     c.height = squareSize * cols;
     const g2 = c.getContext('2d');
 
+    const { boardColor, boardLight } = localSettings;
 
     g2.clearRect(0, 0, c.width, c.height);
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
             const isLight = (x + y) % 2 === 0;
-            g2.fillStyle = isLight ? `hsl(${color} 60% ${light}%)` : `hsl(${color} 60% ${light-30}%)`;
+            g2.fillStyle = isLight
+                ? `hsl(${boardColor} 60% ${boardLight}%)`
+                : `hsl(${boardColor} 60% ${boardLight - 30}%)`;
             g2.fillRect(x * squareSize, y * squareSize, squareSize, squareSize);
         }
     }
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PIECE RENDERING — dual skin support
+//
+// Each piece is rendered using the skin that belongs to the side that owns it:
+//   - White pieces → local player's skin  (when localPlayerColor === 'white')
+//                    opponent's skin       (when localPlayerColor === 'black')
+//   - Black pieces → vice-versa
+//
+// The SVG <use> href is prefixed with the skin name so the two sprite sheets
+// can coexist in the DOM without id collisions:
+//   local skin   → #local-wk,  #local-wp  …
+//   opponent skin → #opp-wk,   #opp-wp   …
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function renderPieces(boardState) {
     // 1. Clear the layer to prevent duplicating pieces upon re-rendering
     piecesLayer.innerHTML = '';
 
-    // 2. Iterate through rows (Y-axis) and columns (X-axis)
+    const localIsWhite = gameState.localPlayerColor === 'white';
+
     for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
             const pieceChar = boardState[row][col];
+            if (!pieceChar) continue;
 
-            // 3. If a piece exists on this square, generate its SVG
-            if (pieceChar) {
-                const svgId = svgMap[pieceChar];
-                const leftPosition = col * squareSize;
-                const topPosition = row * squareSize;
+            const svgId = svgMap[pieceChar];
+            const isBlackPiece = BLACK_PIECES.has(pieceChar);
 
-                // Replace "0 0 45 45" with the actual viewBox found in your standard.svg file
-                const nativeViewBox = "0 0 40 40";
+            // Determine which skin to use for this piece
+            const pieceIsOpponents = localIsWhite ? isBlackPiece : !isBlackPiece;
+            const skinPrefix = pieceIsOpponents ? 'opp' : 'local';
 
-                const pieceHTML = `
-                    <div class="chess-piece-wrapper" data-row="${row}" data-col="${col}"
-                        style="position: absolute; left: ${leftPosition}px; top: ${topPosition}px; width: ${squareSize}px; height: ${squareSize}px; display: flex; justify-content: center; align-items: center; pointer-events: auto; cursor: grab;">
-                        
-                        <svg viewBox="${nativeViewBox}" style="width: 100%; height: 100%; pointer-events: none;">
-                            <use href="#${svgId}"></use>
-                        </svg>
-                        
-                    </div>
-                `;
+            const leftPosition = col * squareSize;
+            const topPosition  = row * squareSize;
+            const nativeViewBox = "0 0 40 40";
 
-                // Inject the generated element directly into the DOM
-                piecesLayer.insertAdjacentHTML('beforeend', pieceHTML);
-            }
+            const pieceHTML = `
+                <div class="chess-piece-wrapper" data-row="${row}" data-col="${col}"
+                    style="position: absolute; left: ${leftPosition}px; top: ${topPosition}px; width: ${squareSize}px; height: ${squareSize}px; display: flex; justify-content: center; align-items: center; pointer-events: auto; cursor: grab;">
+                    
+                    <svg viewBox="${nativeViewBox}" style="width: 100%; height: 100%; pointer-events: none;">
+                        <use href="#${skinPrefix}-${svgId}"></use>
+                    </svg>
+                    
+                </div>
+            `;
+
+            piecesLayer.insertAdjacentHTML('beforeend', pieceHTML);
         }
     }
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ARROW DRAWING
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function getSquareCenter(row, col) {
     return {
@@ -82,7 +136,7 @@ export function drawArrow(fromRow, fromCol, toRow, toCol) {
     const start = getSquareCenter(fromRow, fromCol);
     const end = getSquareCenter(toRow, toCol);
 
-    const arrowColor = `hsl(${getComplementaryColor(color)} 70% 50% / 0.8)`;
+    const arrowColor = `hsl(${getComplementaryColor(localSettings.boardColor)} 70% 50% / 0.8)`;
     
     const arrowHead = document.querySelector("#arrowhead");
     arrowHead.setAttribute("refX", squareSize * 0.0125);
@@ -126,6 +180,18 @@ export function clearArrows() {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PIECE RASTERISATION (for canvas FX)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getSkinNameForPiece(svgId) {
+    const isBlackPiece = ['bk', 'bq', 'br', 'bb', 'bn', 'bp'].includes(svgId);
+    const localIsWhite = gameState.localPlayerColor === 'white';
+    const pieceIsOpponents = localIsWhite ? isBlackPiece : !isBlackPiece;
+    return pieceIsOpponents 
+        ? (opponentSettings?.piecesSkin || localSettings.piecesSkin) 
+        : localSettings.piecesSkin;
+}
 
 function rasterizePiece(svgId) {
     const offscreen = document.createElement('canvas');
@@ -133,8 +199,9 @@ function rasterizePiece(svgId) {
     offscreen.height = squareSize;
     const ctx = offscreen.getContext('2d', { willReadFrequently: true });
 
-    // Assuming you have the piece stored as an Image object from our previous extraction logic
-    const pieceImg = imagePieces[svgId];
+    const skinName = getSkinNameForPiece(svgId);
+    const packMap = _imagePiecesCache.get(skinName);
+    const pieceImg = packMap ? packMap[svgId] : imagePieces[svgId];
 
     if (pieceImg) {
         ctx.drawImage(pieceImg, 0, 0, squareSize, squareSize);
@@ -145,6 +212,9 @@ function rasterizePiece(svgId) {
 }
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPLOSION FX
+// ─────────────────────────────────────────────────────────────────────────────
 
 function createVoronoiShards(imageData, numShards = 12) {
     const shards = Array.from({ length: numShards }, () => {
@@ -222,7 +292,6 @@ function createVoronoiShards(imageData, numShards = 12) {
 }
 
 
-
 const fxCanvas = document.getElementById('fx-layer');
 const fxCtx = fxCanvas.getContext('2d');
 
@@ -232,49 +301,6 @@ function resizeFxCanvas() {
 }
 window.addEventListener('resize', resizeFxCanvas);
 resizeFxCanvas();
-
-// export function triggerExplosion(captureRow, captureCol, capturedSvgId) {
-//     const imageData = rasterizePiece(capturedSvgId);
-//     const shards = createVoronoiShards(imageData);
-
-//     // Absolute starting coordinates on the main board
-//     const startX = captureCol * squareSize;
-//     const startY = captureRow * squareSize;
-
-//     let opacity = 1.0;
-
-//     function animate() {
-//         // Clear the FX canvas for the next frame
-//         fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
-//         opacity -= 0.05; // Fade out the explosion gradually
-
-//         if (opacity <= 0) return; // End the animation loop
-
-//         shards.forEach(shard => {
-//             // Apply physics
-//             shard.centerX += shard.velocityX;
-//             shard.centerY += shard.velocityY;
-//             // shard.velocityY += 0.8; // Gravity pulling pieces downward
-
-//             // Draw the shard's pixels at its new position
-//             fxCtx.fillStyle = `hsl(0 100% 40% / ${opacity})`;
-
-//             shard.pixels.forEach(p => {
-//                 fxCtx.fillStyle = `rgba(${p.r}, ${p.g}, ${p.b}, ${opacity})`;
-//                 // Calculate global board position + shard translation + local pixel offset
-//                 const drawX = startX + p.x + (shard.centerX - p.x) * 0.5;
-//                 const drawY = startY + p.y + (shard.centerY - p.y) * 0.5;
-
-//                 fxCtx.fillRect(drawX, drawY, 1, 1);
-//             });
-//         });
-
-//         requestAnimationFrame(animate);
-//     }
-
-//     // Hide the captured DOM piece instantly and start the animation
-//     animate();
-// }
 
 
 export function triggerExplosion(captureRow, captureCol, capturedSvgId) {
@@ -307,7 +333,6 @@ export function triggerExplosion(captureRow, captureCol, capturedSvgId) {
     
     let opacity = 1.0;
     let time = squareSize * 0.6;
-    const friction = 0.9;
 
     function animate() {
         fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
@@ -333,4 +358,230 @@ export function triggerExplosion(captureRow, captureCol, capturedSvgId) {
     }
     
     animate();
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIECE ANIMATION
+// Moved here from index.js — it belongs with rendering, not input handling.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Slides a piece element from one square to another using the Web Animations API,
+ * with a ghost-trail effect drawn on a temporary canvas.
+ *
+ * @param {{ row: number, col: number }} fromSquare
+ * @param {{ row: number, col: number }} toSquare
+ * @returns {Promise<void>} Resolves when the animation finishes.
+ */
+export async function animatePieceMove(fromSquare, toSquare) {
+    const pieceElement = document.querySelector(
+        `.chess-piece-wrapper[data-row="${fromSquare.row}"][data-col="${fromSquare.col}"]`
+    );
+    if (!pieceElement) return;
+
+    const deltaX = (toSquare.col - fromSquare.col) * squareSize;
+    const deltaY = (toSquare.row - fromSquare.row) * squareSize;
+    pieceElement.style.zIndex = '100';
+
+    const href    = pieceElement.querySelector('use').getAttribute('href');
+    // href is now "#local-wk" or "#opp-wk" — extract just the svgId part
+    const svgId   = href.split('-').slice(1).join('-');
+    
+    const skinName = getSkinNameForPiece(svgId);
+    const packMap  = _imagePiecesCache.get(skinName);
+    const img      = packMap ? packMap[svgId] : imagePieces[svgId];
+    
+    const gameContainer = document.getElementById('game-container');
+
+    // Temporary canvas for the ghost trail — lives only for the duration of this move
+    const trailCanvas = document.createElement('canvas');
+    trailCanvas.width  = squareSize * cols;
+    trailCanvas.height = squareSize * rows;
+    trailCanvas.style.cssText = 'position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;';
+    gameContainer.appendChild(trailCanvas);
+    const trailCtx = trailCanvas.getContext('2d');
+
+    let isAnimating = true;
+    const ghosts    = [];
+
+    // Frame Rate Controller: 60 = dense, 24 = cinematic, 12 = sparse stop-motion
+    const targetFPS      = 20;
+    const frameInterval  = 1000 / targetFPS;
+    let previousTimestamp = performance.now();
+
+    function renderTrail(currentTimestamp) {
+        const elapsed = currentTimestamp - previousTimestamp;
+
+        if (elapsed < frameInterval) {
+            if (isAnimating || ghosts.length > 0) {
+                requestAnimationFrame(renderTrail);
+            } else {
+                trailCanvas.remove();
+            }
+            return;
+        }
+
+        // Advance the clock, clamping for drift prevention
+        previousTimestamp = currentTimestamp - (elapsed % frameInterval);
+
+        trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+
+        if (isAnimating) {
+            const rect          = pieceElement.getBoundingClientRect();
+            const containerRect = gameContainer.getBoundingClientRect();
+            ghosts.push({
+                x:       rect.left - containerRect.left,
+                y:       rect.top  - containerRect.top,
+                opacity: 1,
+            });
+        }
+
+        for (let i = ghosts.length - 1; i >= 0; i--) {
+            const ghost = ghosts[i];
+            trailCtx.globalAlpha = ghost.opacity;
+
+            if (img) {
+                trailCtx.drawImage(img, ghost.x, ghost.y, squareSize, squareSize);
+                trailCtx.globalCompositeOperation = 'source-atop';
+                trailCtx.fillStyle = 'hsl(0 100% 40% / 0)';
+                trailCtx.fillRect(ghost.x, ghost.y, squareSize, squareSize);
+                trailCtx.globalCompositeOperation = 'source-over';
+            }
+
+            // Increase this value (e.g. 0.15) if you lower targetFPS
+            ghost.opacity -= 0.1;
+            if (ghost.opacity <= 0) ghosts.splice(i, 1);
+        }
+
+        trailCtx.globalAlpha = 1.0;
+
+        if (isAnimating || ghosts.length > 0) {
+            requestAnimationFrame(renderTrail);
+        } else {
+            trailCanvas.remove();
+        }
+    }
+
+    requestAnimationFrame(renderTrail);
+
+    const animation = pieceElement.animate([
+        { transform: 'translate(0px, 0px)' },
+        { transform: `translate(${deltaX}px, ${deltaY}px)` },
+    ], {
+        duration: 180,
+        easing:   'ease-in',
+        fill:     'forwards',
+    });
+
+    await animation.finished;
+    isAnimating = false;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPRITE SHEET INITIALISATION — dual skin support
+//
+// Each skin gets its own hidden <div> injected into the DOM. The SVG symbols
+// inside are renamed with a prefix so they coexist without id collisions:
+//   local skin  →  id="local-wk", id="local-wp" …
+//   opponent skin → id="opp-wk",   id="opp-wp"  …
+//
+// renderPieces() uses `<use href="#local-wk">` or `<use href="#opp-wk">`
+// depending on which side owns each piece.
+//
+// initPieceSprites() loads both skins at startup and also listens for the
+// `opponent-settings-changed` event to reload the opponent skin on the fly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Loads a sprite sheet SVG, injects it into the DOM with prefixed IDs,
+ * and pre-rasterises each symbol into the image cache for canvas FX.
+ *
+ * @param {string} skinName  - e.g. "standard"
+ * @param {'local'|'opp'} prefix - DOM id prefix to avoid collisions
+ * @returns {Promise<void>}
+ */
+export async function loadSpriteSheet(skinName, prefix) {
+    const skinPath = `./assets/pieces/${skinName}.svg`;
+
+    let svgText;
+    try {
+        const res = await fetch(skinPath);
+        svgText = await res.text();
+    } catch (err) {
+        console.error(`[drawChessboard] Failed to load sprite sheet "${skinName}":`, err);
+        return;
+    }
+
+    // Remove any previously injected container for this prefix
+    const oldContainer = document.getElementById(`sprite-container-${prefix}`);
+    if (oldContainer) oldContainer.remove();
+
+    // Prefix all symbol/group IDs to prevent collisions between skins
+    const prefixedSvg = svgText.replace(
+        /\bid="(wk|wq|wr|wb|wn|wp|bk|bq|br|bb|bn|bp)"/g,
+        `id="${prefix}-$1"`
+    );
+
+    const hiddenDiv = document.createElement('div');
+    hiddenDiv.id = `sprite-container-${prefix}`;
+    hiddenDiv.style.display = 'none';
+    hiddenDiv.innerHTML = prefixedSvg;
+    document.body.appendChild(hiddenDiv);
+
+    // Pre-rasterise each symbol into an Image object for the trail/explosion canvas
+    const parser  = new DOMParser();
+    const svgDoc  = parser.parseFromString(svgText, 'image/svg+xml');
+    const packMap = {};
+
+    for (const [, svgId] of Object.entries(svgMap)) {
+        const groupElement = svgDoc.getElementById(svgId);
+        if (!groupElement) continue;
+
+        // Browsers strictly parse data URIs as XML, so duplicate internal IDs (like id="Shape" in standard.svg)
+        // will cause the image to silently fail to load. We strip all IDs except the root one to fix this.
+        let safeOuterHTML = groupElement.outerHTML;
+        safeOuterHTML = safeOuterHTML.replace(/\bid="[^"]+"/g, (match) => {
+            return match === `id="${svgId}"` ? match : '';
+        });
+
+        const isolatedSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">${safeOuterHTML}</svg>`;
+        const img = new Image();
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(isolatedSvg);
+        packMap[svgId] = img;
+    }
+
+    _imagePiecesCache.set(skinName, packMap);
+
+    // Keep the legacy `imagePieces` export in sync with the local skin
+    if (prefix === 'local') {
+        Object.assign(imagePieces, packMap);
+    }
+}
+
+/**
+ * Initialises both piece sprite sheets (local + opponent).
+ * Falls back to the local skin for the opponent if no opponent settings exist yet.
+ * Also registers the `opponent-settings-changed` listener for live skin swaps.
+ *
+ * Call once at startup, after drawChessboard().
+ */
+export function initPieceSprites() {
+    // Load local skin
+    loadSpriteSheet(localSettings.piecesSkin, 'local');
+
+    // Load opponent skin — falls back to local skin until opponent connects
+    const oppSkin = opponentSettings?.piecesSkin ?? localSettings.piecesSkin;
+    loadSpriteSheet(oppSkin, 'opp');
+
+    // Live swap: when the opponent's settings arrive, reload their skin
+    document.addEventListener('opponent-settings-changed', async (event) => {
+        const { piecesSkin } = event.detail;
+        await loadSpriteSheet(piecesSkin, 'opp');
+        // Re-render so the new skin is visible immediately
+        import('./gameState.js').then(({ gameState }) => {
+            renderPieces(gameState.board);
+        });
+    });
 }
