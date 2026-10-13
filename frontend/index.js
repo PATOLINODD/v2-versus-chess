@@ -86,7 +86,7 @@ gameContainer.addEventListener('mouseup', e => {
  */
 export function drawHints(legalMoves) {
     hintsLayer.innerHTML = '';
-    const hintColor = `hsl(${localSettings.boardColor} 100% 15% / 0.5)`;
+    const hintColor = `hsl(${localSettings.boardColor} 100% 05% / 0.5)`;
     const redColor  = 'hsl(0 100% 40%)';
 
     legalMoves.forEach(move => {
@@ -155,7 +155,19 @@ export function getLegalMoves(row, col) {
 }
 
 
-// ─── Click Input Handler ──────────────────────────────────────────────────────
+// ─── Input Handling (Click & Drag-and-Drop) ───────────────────────────────────
+
+let draggedPiece = null;
+
+function resetDraggedPieceVisuals() {
+    if (!draggedPiece) return;
+    const { element, origLeft, origTop } = draggedPiece;
+    element.style.left = `${origLeft}px`;
+    element.style.top = `${origTop}px`;
+    element.style.zIndex = '';
+    element.style.cursor = 'grab';
+    draggedPiece = null;
+}
 
 gameContainer.addEventListener('mousedown', e => {
     // Only handle primary button; right-clicks are handled by the arrow listener above
@@ -181,12 +193,33 @@ gameContainer.addEventListener('mousedown', e => {
         }
     }
 
-    // ── Scenario B: click a piece to select it ────────────────────────────
+    // ── Scenario B: click / initiate drag on a piece ──────────────────────
     const pieceChar = gameState.board[clickedRow][clickedCol];
     if (pieceChar) {
+        const pieceElement = document.querySelector(
+            `.chess-piece-wrapper[data-row="${clickedRow}"][data-col="${clickedCol}"]`
+        );
         const legalMoves = getLegalMoves(clickedRow, clickedCol);
         gameState.activeSelection = { row: clickedRow, col: clickedCol, moves: legalMoves };
         drawHints(legalMoves);
+
+        if (pieceElement) {
+            const rect = gameContainer.getBoundingClientRect();
+            draggedPiece = {
+                element: pieceElement,
+                row: clickedRow,
+                col: clickedCol,
+                origLeft: clickedCol * squareSize,
+                origTop: clickedRow * squareSize,
+                grabOffsetX: (e.clientX - rect.left) - (clickedCol * squareSize),
+                grabOffsetY: (e.clientY - rect.top) - (clickedRow * squareSize),
+                hasMoved: false,
+                startX: e.clientX,
+                startY: e.clientY,
+            };
+            pieceElement.style.zIndex = '50';
+            pieceElement.style.cursor = 'grabbing';
+        }
         return;
     }
 
@@ -194,3 +227,57 @@ gameContainer.addEventListener('mousedown', e => {
     gameState.activeSelection = null;
     clearHints();
 });
+
+window.addEventListener('mousemove', e => {
+    if (!draggedPiece) return;
+
+    const dx = e.clientX - draggedPiece.startX;
+    const dy = e.clientY - draggedPiece.startY;
+    if (!draggedPiece.hasMoved && Math.hypot(dx, dy) > 3) {
+        draggedPiece.hasMoved = true;
+    }
+
+    if (draggedPiece.hasMoved) {
+        const rect = gameContainer.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+
+        draggedPiece.element.style.left = `${currentX - draggedPiece.grabOffsetX}px`;
+        draggedPiece.element.style.top = `${currentY - draggedPiece.grabOffsetY}px`;
+    }
+});
+
+window.addEventListener('mouseup', e => {
+    if (e.button !== 0 || !draggedPiece) return;
+
+    const drag = draggedPiece;
+    const dropSquare = getSquareFromEvent(e);
+    const { row: dropRow, col: dropCol } = dropSquare;
+    const wasDragged = drag.hasMoved;
+
+    // Reset element positioning and grab styles
+    resetDraggedPieceVisuals();
+
+    if (wasDragged) {
+        // Dropped on the same square: cancel move, keep selection for click-move
+        if (dropRow === drag.row && dropCol === drag.col) {
+            return;
+        }
+
+        // Dropped on a destination square
+        if (gameState.activeSelection && gameState.activeSelection.row === drag.row && gameState.activeSelection.col === drag.col) {
+            const destination = gameState.activeSelection.moves.find(
+                m => m.row === dropRow && m.col === dropCol
+            );
+
+            if (destination) {
+                const selection = gameState.activeSelection;
+                gameState.activeSelection = null;
+                clearHints();
+
+                dispatchLocalMove(selection, dropSquare, destination.moveObj, false);
+            }
+        }
+    }
+});
+

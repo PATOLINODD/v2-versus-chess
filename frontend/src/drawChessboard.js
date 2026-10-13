@@ -59,7 +59,7 @@ export function drawChessboard() {
             const isLight = (x + y) % 2 === 0;
             g2.fillStyle = isLight
                 ? `hsl(${boardColor} 60% ${boardLight}%)`
-                : `hsl(${boardColor} 60% ${boardLight - 30}%)`;
+                : `hsl(${boardColor} 60% ${boardLight * 0.5}%)`;
             g2.fillRect(x * squareSize, y * squareSize, squareSize, squareSize);
         }
     }
@@ -136,7 +136,7 @@ export function drawArrow(fromRow, fromCol, toRow, toCol) {
     const start = getSquareCenter(fromRow, fromCol);
     const end = getSquareCenter(toRow, toCol);
 
-    const arrowColor = `hsl(${getComplementaryColor(localSettings.boardColor)} 70% 50% / 0.8)`;
+    const arrowColor = localSettings.arrowColor;
     
     const arrowHead = document.querySelector("#arrowhead");
     arrowHead.setAttribute("refX", squareSize * 0.0125);
@@ -406,7 +406,7 @@ export async function animatePieceMove(fromSquare, toSquare) {
     const ghosts    = [];
 
     // Frame Rate Controller: 60 = dense, 24 = cinematic, 12 = sparse stop-motion
-    const targetFPS      = 20;
+    const targetFPS      = 15;
     const frameInterval  = 1000 / targetFPS;
     let previousTimestamp = performance.now();
 
@@ -450,7 +450,7 @@ export async function animatePieceMove(fromSquare, toSquare) {
             }
 
             // Increase this value (e.g. 0.15) if you lower targetFPS
-            ghost.opacity -= 0.1;
+            ghost.opacity -= 0.2;
             if (ghost.opacity <= 0) ghosts.splice(i, 1);
         }
 

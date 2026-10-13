@@ -24,6 +24,11 @@
  * `gameState.localPlayerColor` ('white' | 'black').
  */
 
+import { getComplementaryColor } from './utils/util.js';
+
+const boardColor = 240;
+const arrowColor = `hsl(${getComplementaryColor(boardColor)} 63% 50% / 0.72)`
+
 // ─── Local player settings ────────────────────────────────────────────────────
 
 export const localSettings = {
@@ -34,10 +39,12 @@ export const localSettings = {
     soundPack: 'standard',
 
     /** HSL hue (0–360) for the board color theme */
-    boardColor: 40,
+    boardColor: boardColor,
 
     /** HSL lightness (0–100) for the light squares */
-    boardLight: 70,
+    boardLight: 50,
+
+    arrowColor: arrowColor
 };
 
 

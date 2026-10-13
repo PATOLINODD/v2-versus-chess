@@ -58,8 +58,9 @@ async function getSocket() {
  * @param {{ row: number, col: number }} fromSquare
  * @param {{ row: number, col: number }} toSquare
  * @param {object} moveObj - Move descriptor from the chess engine
+ * @param {boolean} animate - Whether to animate the piece move visually
  */
-export async function dispatchLocalMove(fromSquare, toSquare, moveObj) {
+export async function dispatchLocalMove(fromSquare, toSquare, moveObj, animate = true) {
     // ── Send to server when playing online ─────────────────────────────────
     const socket = await getSocket();
     if (socket.getSocketStatus() === 'connected') {
@@ -71,7 +72,7 @@ export async function dispatchLocalMove(fromSquare, toSquare, moveObj) {
     // ────────────────────────────────────────────────────────────────────────
 
     // Local player's move — use local sound pack
-    await applyMove(fromSquare, toSquare, moveObj, localSettings.soundPack);
+    await applyMove(fromSquare, toSquare, moveObj, localSettings.soundPack, animate);
 }
 
 /**
@@ -85,7 +86,7 @@ export async function dispatchLocalMove(fromSquare, toSquare, moveObj) {
 export async function receiveRemoteMove(fromSquare, toSquare, moveObj) {
     // Remote player's move — use opponent's sound pack (falls back to local)
     const pack = opponentSettings?.soundPack ?? localSettings.soundPack;
-    await applyMove(fromSquare, toSquare, moveObj, pack);
+    await applyMove(fromSquare, toSquare, moveObj, pack, true);
 }
 
 
@@ -99,10 +100,13 @@ export async function receiveRemoteMove(fromSquare, toSquare, moveObj) {
  * @param {{ row: number, col: number }} toSquare
  * @param {object} moveObj
  * @param {string} soundPack - Which sound pack folder to use for this move's audio
+ * @param {boolean} animate - Whether to animate the move
  */
-async function applyMove(fromSquare, toSquare, moveObj, soundPack) {
+async function applyMove(fromSquare, toSquare, moveObj, soundPack, animate = true) {
     // 1. Visual: slide the piece to its destination
-    await animatePieceMove(fromSquare, toSquare);
+    if (animate) {
+        await animatePieceMove(fromSquare, toSquare);
+    }
 
     const isEnPassant = (moveObj.mask & 8) !== 0;
     const isCapture   = (moveObj.mask & 1) !== 0;
