@@ -1,0 +1,25 @@
+button {
+    border: none;
+    border-radius: var(--button-radius);
+    padding: 0.5rem;
+    transition: all .3s ease-out;
+    cursor: pointer;
+    color: var(--text-muted);
+    will-change: transform, letter-spacing;
+
+    &:hover {
+        transform: translateY(-5px) scale(1.05);
+    }
+}
+
+button[type='submit'] {
+    background-color: var(--primary-color);
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.1rem;
+
+    &:hover {
+        letter-spacing: 0.25rem;
+    }
+}

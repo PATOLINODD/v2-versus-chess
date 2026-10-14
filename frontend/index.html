@@ -1,45 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Versus Chess</title>
 
-    <script type="module" src="./index.js"></script>
-
     <link rel="stylesheet" href="./index.css">
+    <link rel="stylesheet" href="./styles/shared/flex.css">
+    <link rel="stylesheet" href="./styles/components/button.css">
+
+    <style>
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 0 3rem;
+        }
+
+        main {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            overflow: hidden;
+            height: 50dvh;
+        }
+
+        form {
+            padding: 1rem;
+            min-width: 100%;
+            height: 100%;
+            will-change: transform;
+            border-radius: var(--card-radius);
+
+            background-color: var(--bg);
+            color: var(--text);
+        }
+
+        form > * {
+            width: 100%;
+        }
+
+        form input {
+            background-color: var(--bg-light);
+        }
+    </style>
+
+
+    <!-- LOAD COMPONENTS -->
+
+    <script type="module" src="./components/initComponents.js"></script>
 </head>
-
-<body>
-    <div style="position: relative; width: 640px; height: 640px;" id="game-container">
-        <!-- Your existing canvas goes here -->
-        <canvas id="chessboard" style="position: absolute; top: 0; left: 0; z-index: 1;"></canvas>
-
-        <!-- The pieces container goes on top -->
-        <div id="pieces-layer"
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;">
-        </div>
-
-        <!-- Z-index 2: The Move Hints Layer -->
-        <div id="hints-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;"></div>
-        <!-- Z-index 3: The SVG Arrow Layer -->
-        <svg id="arrow-layer"
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none;">
-            <!-- Define the arrowhead shape once in memory -->
-            <defs>
-                <!-- markerUnits="userSpaceOnUse" locks the size to exact pixels -->
-                <marker id="arrowhead" markerWidth="64" markerHeight="64" orient="auto"
-                    markerUnits="userSpaceOnUse">
-                    <!-- A precisely defined 40x40 pixel triangle -->
-                    <polygon id="head" points="0 0, 40 20, 0 40" fill="" />
-                </marker>
-            </defs>
-        </svg>
-
+<body class="col gap-8">
+    <div class="flex justify-between align-center gap-4">
+        <button id="changeToLogin">Entrar</button><button id="changeTosignup">Criar Conta</button>
     </div>
-    <!-- Z-index 5: The FX Animation Canvas -->
-    <canvas id="fx-layer" style="position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none;"></canvas>
-</body>
+    <main>
+        <form id="loginForm" class="flex justify-center align-center col gap-4">
+            <div class="flex col">
+                <pato-floating-input label="Seu Email"></pato-floating-input>
+            </div>
+            <div class="flex col">
+                <pato-floating-input label="Sua Senha" type="password"></pato-floating-input>
+            </div>
+            <div class="flex col-reverse gap-1">
+                <a>Entrar Como Convidado</a>
+                <button type="submit">ENTRAR</button>
+            </div>
+        </form>
+        <form id="signupForm" class="flex justify-center align-center col gap-4">
+            <pato-floating-input label="Seu Email"></pato-floating-input>
+            <pato-floating-input label="Seu Apelido"></pato-floating-input>
+            <pato-floating-input label="Sua Senha" type="password"></pato-floating-input>
+            <div class="flex col-reverse gap-1">
+                <a>Entrar Como Convidado</a>
+                <button type="submit">CADASTRAR</button>
+            </div>
+        </form>
+    </main>
 
+    <script>
+        let whichForm = "login";
+        const login = document.querySelector('#changeToLogin');
+        const signup = document.querySelector('#changeTosignup');
+        const forms = document.querySelectorAll('form')
+
+        login.addEventListener('click', () => {
+            forms.forEach(form => {
+                form.animate(
+                    {
+                       transform: ["translateX(0)"]
+                    },
+                    {
+                        duration: 333, fill: 'forwards', easing: 'ease-out'
+                    }
+                )
+            })
+        })
+        signup.addEventListener('click', () => {
+            forms.forEach(form => {
+                form.animate(
+                    {
+                       transform: ["translateX(-100%)"]
+                    },
+                    {
+                        duration: 333, fill: 'forwards', easing: 'ease-out'
+                    }
+                )
+            })
+        })
+    </script>
+</body>
 </html>

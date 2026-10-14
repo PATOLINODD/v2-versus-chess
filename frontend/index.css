@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans:wght@100..800&family=Schoolbell&family=Sour+Gummy:ital,wght@0,100..900;1,100..900&display=swap');
+
+
 body {
     display: flex;
     justify-content: center;
@@ -8,9 +11,65 @@ body {
 }
 
 :root {
-    --arrow-color: hsl(50, 100%, 40%);
+    --bg-dark: hsl(266, 100%, 15%);
+    --bg: hsl(266 100% 20%);
+    --bg-light: hsl(266 100% 25%);
+
+    --text: hsl(266 100% 95%);
+    --text-muted: hsl(266 100% 65%);
+
+    --primary-color: hsl(200 100% 50%);
+    --secondary-color: hsl(298 100% 70% / 1);
+
+    --success: hsl(138, 100%, 50%);
+    --warning: hsl(71, 100%, 50%);
+    --danger: hsl(0, 100%, 50%);
+
+    --border-style: solid;
+    --border-size: 1px;
+    --border-color: var(--secondary-color);
+    --border: var(--border-size) var(--border-style) var(--border-color);
+
+    --card-radius: .5rem;
+    --button-radius: 0.25rem;
+    --circle: 50%;
+
+    --title-font: "Sour Gummy", sans-serif;
+    --subtitle-font: "Schoolbell", cursive;
+    --primary-font: "Playpen Sans", cursive;
+
+    --thin: 100;
+    --extra-light: 200;
+    --light: 300;
+    --regular: 400; 
+    --medium: 500; 
+    --semi-bold: 600; 
+    --bold: 700; 
+    --extra-bold: 800; 
+    --bolder: 900; 
 }
 
 svg {
     transition: all .3s ease-out;
+}
+
+a {
+    text-decoration: none;
+    color: var(--text);
+    text-align: center;
+    cursor: pointer;
+    transition: all .3s ease-out;
+    font-size: 1.5rem;
+    transform: scale(0.6);
+    letter-spacing: 0.125rem;
+    
+    &:hover {
+        transform: translateY(-5px) scale(0.8);
+        color: var(--secondary-color);
+        text-decoration: underline;
+    }
+}
+
+a:hover + button[type='submit'] {
+    transform: scale(0.9);
 }
