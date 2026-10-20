@@ -37,7 +37,8 @@ export class PatoFloatingInputComponent extends AbstractFormComponent {
                 transition: all .3s ease-out;
             }
 
-            :host(:hover) {
+            :host(:hover),
+            :host(:focus-within) {
                 transform: scale(1.05);
             }
                 
@@ -62,6 +63,8 @@ export class PatoFloatingInputComponent extends AbstractFormComponent {
                 background: transparent;
                 color: var(--text);
 
+                font-size: 1.25rem;
+
 
                 &:focus {
                     border: 1px solid var(--primary-color);
@@ -77,10 +80,14 @@ export class PatoFloatingInputComponent extends AbstractFormComponent {
                 position: absolute;
                 top: 50%;
                 left: 0.5rem;
-                padding: 0.25rem;
+                padding: 0 0.125rem;
                 width: max-content;
+
+                font-size: 2rem;
+                
                 color: var(--text-muted, hsl(0 0% 70%));
-                transform: translateY(-50%);
+                
+                transform: translateY(-50%) scale(0.7);
                 transform-origin: left;
 
                 pointer-events: none;
@@ -90,7 +97,7 @@ export class PatoFloatingInputComponent extends AbstractFormComponent {
             input:not(:placeholder-shown) + label
             {
                 top: 0;
-                transform: translateY(-50%) scale(0.8);
+                transform: translateY(-50%) scale(0.7);
                 color: var(--primary-color, hsl(40 100% 50%));
                 background-color: inherit;
             }
